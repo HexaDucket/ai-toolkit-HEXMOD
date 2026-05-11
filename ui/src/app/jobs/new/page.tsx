@@ -18,7 +18,7 @@ import { TopBar, MainContent } from '@/components/layout';
 import { Button } from '@headlessui/react';
 import { FaChevronLeft } from 'react-icons/fa';
 import SimpleJob from './SimpleJob';
-import AdvancedJob from './AdvancedJob';
+import AdvancedConfigEditor from '@/components/AdvancedConfigEditor';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { apiClient } from '@/utils/api';
 import { FilePlus2, FolderOpen, Save, PencilLine, Trash2 } from 'lucide-react';
@@ -454,17 +454,20 @@ export default function TrainingForm() {
       {showAdvancedView ? (
         <div className="pt-14 px-4 absolute top-0 left-0 w-full h-full overflow-auto">
           <div className="h-[calc(100vh-4.5rem)] min-h-[32rem] overflow-hidden rounded-lg border border-gray-800 bg-gray-950">
-            <AdvancedJob
-              jobConfig={jobConfig}
-              setJobConfig={setJobConfig}
-              status={status}
-              handleSubmit={handleSubmit}
-              runId={runId}
-              gpuIDs={gpuIDs}
-              setGpuIDs={setGpuIDs}
-              gpuList={gpuList}
-              datasetOptions={datasetOptions}
-              settings={settings}
+            <AdvancedConfigEditor
+              config={jobConfig}
+              setConfig={setJobConfig}
+              transformOnParse={(parsed: any) => {
+                try {
+                  parsed.config.process[0].sqlite_db_path = './aitk_db.db';
+                  parsed.config.process[0].training_folder = settings.TRAINING_FOLDER;
+                  parsed.config.process[0].device = 'cuda';
+                  parsed.config.process[0].performance_log_every = 10;
+                } catch (e) {
+                  console.warn(e);
+                }
+                return migrateJobConfig(parsed);
+              }}
             />
           </div>
         </div>

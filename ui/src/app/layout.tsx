@@ -7,6 +7,7 @@ import { Suspense } from 'react';
 import AuthWrapper from '@/components/AuthWrapper';
 import DocModal from '@/components/DocModal';
 import os from 'os';
+import { CaptionDatasetModal } from '@/components/CaptionDatasetModal';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </ThemeProvider>
         <ConfirmModal />
         <DocModal />
+        <CaptionDatasetModal />
       </body>
     </html>
   );
