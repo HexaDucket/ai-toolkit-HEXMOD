@@ -129,12 +129,19 @@ export interface TrainConfig {
   content_or_style: string;
   optimizer: string;
   lr: number;
+  lr_scheduler?: string;
+  num_warmup_steps?: number;
   ema_config?: EMAConfig;
   dtype: string;
   unload_text_encoder: boolean;
   cache_text_embeddings: boolean;
   optimizer_params: {
     weight_decay: number;
+    wd_schedule?: boolean | number;
+    centralize?: boolean;
+    stabilize?: boolean;
+    bf16_sr?: boolean;
+    compute_dtype?: string | null;
   };
   skip_first_sample: boolean;
   force_first_sample: boolean;
@@ -244,6 +251,9 @@ export interface ConfigObject {
 export interface MetaConfig {
   name: string;
   version: string;
+  training_epochs?: number;
+  training_repeats?: number;
+  training_warmup_percentage?: number;
 }
 
 export interface JobConfig {

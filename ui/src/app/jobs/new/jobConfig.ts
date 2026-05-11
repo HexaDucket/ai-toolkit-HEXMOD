@@ -73,14 +73,21 @@ export const defaultJobConfig: JobConfig = {
           gradient_checkpointing: true,
           noise_scheduler: 'flowmatch',
           optimizer: 'adamw8bit',
+          lr_scheduler: 'constant',
           timestep_type: 'sigmoid',
           content_or_style: 'balanced',
           optimizer_params: {
             weight_decay: 1e-4,
+            wd_schedule: false,
+            centralize: true,
+            stabilize: true,
+            bf16_sr: true,
+            compute_dtype: 'fp64',
           },
           unload_text_encoder: false,
           cache_text_embeddings: false,
           lr: 0.0001,
+          num_warmup_steps: 0,
           ema_config: {
             use_ema: false,
             ema_decay: 0.99,
@@ -116,6 +123,9 @@ export const defaultJobConfig: JobConfig = {
   meta: {
     name: '[name]',
     version: '1.0',
+    training_epochs: 3,
+    training_repeats: 1,
+    training_warmup_percentage: 0,
   },
 };
 
@@ -157,6 +167,55 @@ export const migrateJobConfig = (jobConfig: JobConfig): JobConfig => {
   }
   if (isMac()) {
     jobConfig.config.process[0].device = 'mps';
+  }
+
+  if (!jobConfig.meta) {
+    jobConfig.meta = {
+      name: '[name]',
+      version: '1.0',
+    };
+  }
+
+  if (jobConfig.meta.training_epochs === undefined) {
+    jobConfig.meta.training_epochs = 3;
+  }
+
+  if (jobConfig.meta.training_repeats === undefined) {
+    jobConfig.meta.training_repeats = jobConfig.config.process[0].datasets?.[0]?.num_repeats ?? 1;
+  }
+
+  if (jobConfig.meta.training_warmup_percentage === undefined) {
+    const steps = jobConfig.config.process[0].train.steps ?? 0;
+    const warmupSteps = jobConfig.config.process[0].train.num_warmup_steps ?? 0;
+    jobConfig.meta.training_warmup_percentage = steps > 0 ? Math.round((warmupSteps / steps) * 100) : 0;
+  }
+
+  if (jobConfig.config.process[0].train.lr_scheduler === undefined) {
+    jobConfig.config.process[0].train.lr_scheduler = 'constant';
+  }
+
+  if (jobConfig.config.process[0].train.num_warmup_steps === undefined) {
+    jobConfig.config.process[0].train.num_warmup_steps = 0;
+  }
+
+  if (jobConfig.config.process[0].train.optimizer_params.wd_schedule === undefined) {
+    jobConfig.config.process[0].train.optimizer_params.wd_schedule = false;
+  }
+
+  if (jobConfig.config.process[0].train.optimizer_params.centralize === undefined) {
+    jobConfig.config.process[0].train.optimizer_params.centralize = true;
+  }
+
+  if (jobConfig.config.process[0].train.optimizer_params.stabilize === undefined) {
+    jobConfig.config.process[0].train.optimizer_params.stabilize = true;
+  }
+
+  if (jobConfig.config.process[0].train.optimizer_params.bf16_sr === undefined) {
+    jobConfig.config.process[0].train.optimizer_params.bf16_sr = true;
+  }
+
+  if (jobConfig.config.process[0].train.optimizer_params.compute_dtype === undefined) {
+    jobConfig.config.process[0].train.optimizer_params.compute_dtype = 'fp64';
   }
 
   return jobConfig;

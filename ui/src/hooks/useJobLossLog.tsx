@@ -11,10 +11,8 @@ export interface LossPoint {
 
 type SeriesMap = Record<string, LossPoint[]>;
 
-function isLossKey(key: string) {
-  // treat anything containing "loss" as a loss-series
-  // (covers loss, train_loss, val_loss, loss/xyz, etc.)
-  return /loss/i.test(key);
+function isChartKey(key: string) {
+  return /loss/i.test(key) || /(?:^|[_/])lr(?:$|[_/])/i.test(key) || key === 'learning_rate';
 }
 
 export default function useJobLossLog(jobID: string, reloadInterval: null | number = null) {
@@ -29,7 +27,7 @@ export default function useJobLossLog(jobID: string, reloadInterval: null | numb
   const lastStepByKeyRef = useRef<Record<string, number | null>>({});
 
   const lossKeys = useMemo(() => {
-    const base = (keys ?? []).filter(isLossKey);
+    const base = (keys ?? []).filter(isChartKey);
     // if keys table is empty early on, fall back to just "loss"
     if (base.length === 0) return ['loss'];
     return base.sort();
@@ -54,7 +52,7 @@ export default function useJobLossLog(jobID: string, reloadInterval: null | numb
       const newKeys = first.keys ?? [];
       setKeys(newKeys);
 
-      const wantedLossKeys = (newKeys.filter(isLossKey).length ? newKeys.filter(isLossKey) : ['loss']).sort();
+      const wantedLossKeys = (newKeys.filter(isChartKey).length ? newKeys.filter(isChartKey) : ['loss']).sort();
 
       // Step 2: fetch each loss key incrementally (since_step per key if polling)
       const requests = wantedLossKeys.map(k => {
@@ -102,7 +100,7 @@ export default function useJobLossLog(jobID: string, reloadInterval: null | numb
 
         // remove stale loss keys that no longer exist (rare, but keeps UI clean)
         for (const existingKey of Object.keys(next)) {
-          if (isLossKey(existingKey) && !wantedLossKeys.includes(existingKey)) {
+          if (isChartKey(existingKey) && !wantedLossKeys.includes(existingKey)) {
             delete next[existingKey];
             delete lastStepByKeyRef.current[existingKey];
           }

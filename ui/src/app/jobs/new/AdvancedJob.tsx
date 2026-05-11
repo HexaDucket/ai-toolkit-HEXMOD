@@ -7,6 +7,7 @@ import type { editor } from 'monaco-editor';
 import { Settings } from '@/hooks/useSettings';
 import { migrateJobConfig } from './jobConfig';
 import { useTheme } from '@/components/ThemeProvider';
+import { configureMonaco } from '@/utils/monaco';
 
 type Props = {
   jobConfig: JobConfig;
@@ -22,6 +23,8 @@ type Props = {
 };
 
 const isDev = process.env.NODE_ENV === 'development';
+
+configureMonaco();
 
 const yamlConfig: YAML.DocumentOptions &
   YAML.SchemaOptions &

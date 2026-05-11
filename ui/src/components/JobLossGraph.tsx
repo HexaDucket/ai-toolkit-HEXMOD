@@ -17,6 +17,11 @@ function formatNum(v: number) {
   return v.toPrecision(4);
 }
 
+function formatScientificNum(v: number) {
+  if (!Number.isFinite(v)) return '';
+  return v.toExponential(0);
+}
+
 function clamp01(x: number) {
   return Math.max(0, Math.min(1, x));
 }
@@ -62,6 +67,10 @@ const PALETTE = [
 
 function strokeForKey(key: string) {
   return PALETTE[hashToIndex(key, PALETTE.length)];
+}
+
+function isLearningRateKey(key: string) {
+  return /(?:^|[_/])lr(?:$|[_/])/i.test(key) || key === 'learning_rate';
 }
 
 // Returns a solid but duller/darker version of an rgba color string for the trend overlay.
@@ -113,6 +122,8 @@ export default function JobLossGraph({ job }: Props) {
   }, [lossKeys]);
 
   const activeKeys = useMemo(() => lossKeys.filter(k => enabled[k] !== false), [lossKeys, enabled]);
+  const lossSeriesKeys = useMemo(() => activeKeys.filter(k => !isLearningRateKey(k)), [activeKeys]);
+  const lrSeriesKeys = useMemo(() => activeKeys.filter(isLearningRateKey), [activeKeys]);
 
   // Zoom state for drag-to-zoom
   const [zoomLeft, setZoomLeft] = useState<number | null>(null);
@@ -283,13 +294,13 @@ export default function JobLossGraph({ job }: Props) {
   const hasData = chartData.length > 1;
   const isZoomed = zoomLeft != null && zoomRight != null;
 
-  const yDomain = useMemo((): [number | 'auto', number | 'auto'] => {
-    if (!clipOutliers || chartData.length < 10) return ['auto', 'auto'];
+  const getDomainForKeys = useCallback((keys: string[]): [number | 'auto', number | 'auto'] => {
+    if (!clipOutliers || chartData.length < 10 || keys.length === 0) return ['auto', 'auto'];
 
     // Collect visible values (prefer smoothed if shown, else raw)
     const vals: number[] = [];
     for (const row of chartData) {
-      for (const key of activeKeys) {
+      for (const key of keys) {
         const k = showSmoothed ? `${key}__smooth` : `${key}__raw`;
         const v = row[k];
         if (typeof v === 'number' && Number.isFinite(v)) vals.push(v);
@@ -303,7 +314,10 @@ export default function JobLossGraph({ job }: Props) {
 
     if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo === hi) return ['auto', 'auto'];
     return [lo, hi];
-  }, [clipOutliers, chartData, activeKeys, showSmoothed]);
+  }, [clipOutliers, chartData, showSmoothed]);
+
+  const yDomain = useMemo(() => getDomainForKeys(lossSeriesKeys), [getDomainForKeys, lossSeriesKeys]);
+  const lrDomain = useMemo(() => getDomainForKeys(lrSeriesKeys), [getDomainForKeys, lrSeriesKeys]);
 
   return (
     <div className="bg-gray-900 rounded-xl shadow-lg overflow-hidden border border-gray-800 flex flex-col">
@@ -366,6 +380,7 @@ export default function JobLossGraph({ job }: Props) {
                   minTickGap={40}
                 />
                 <YAxis
+                  yAxisId="loss"
                   scale={useLogScale ? 'log' : 'linear'}
                   tick={{ fill: 'rgba(255,255,255,0.55)', fontSize: 12 }}
                   tickLine={{ stroke: 'rgba(255,255,255,0.15)' }}
@@ -375,6 +390,19 @@ export default function JobLossGraph({ job }: Props) {
                   domain={yDomain}
                   allowDataOverflow={clipOutliers}
                 />
+                {lrSeriesKeys.length > 0 && (
+                  <YAxis
+                    yAxisId="lr"
+                    orientation="right"
+                    tick={{ fill: 'rgba(255,255,255,0.55)', fontSize: 12 }}
+                    tickLine={{ stroke: 'rgba(255,255,255,0.15)' }}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.15)' }}
+                    width={84}
+                    tickFormatter={formatScientificNum}
+                    domain={lrDomain}
+                    allowDataOverflow={clipOutliers}
+                  />
+                )}
                 {!isDragging && (
                   <Tooltip
                     cursor={{ stroke: 'rgba(59,130,246,0.25)', strokeWidth: 1 }}
@@ -387,7 +415,10 @@ export default function JobLossGraph({ job }: Props) {
                     }}
                     labelStyle={{ color: 'rgba(255,255,255,0.75)' }}
                     labelFormatter={(label: any) => `step ${label}`}
-                    formatter={(value: any, name: any) => [formatNum(Number(value)), name]}
+                    formatter={(value: any, name: any) => {
+                      const numericValue = Number(value);
+                      return [isLearningRateKey(String(name)) ? formatScientificNum(numericValue) : formatNum(numericValue), name];
+                    }}
                   />
                 )}
 
@@ -406,6 +437,7 @@ export default function JobLossGraph({ job }: Props) {
                     type="monotone"
                     dataKey={`${k}__raw`}
                     name={`${k} (raw)`}
+                    yAxisId={isLearningRateKey(k) ? 'lr' : 'loss'}
                     stroke={strokeForKey(k).replace('1)', '0.40)')}
                     strokeWidth={1.25}
                     dot={false}
@@ -419,6 +451,7 @@ export default function JobLossGraph({ job }: Props) {
                     type="monotone"
                     dataKey={`${k}__smooth`}
                     name={`${k}`}
+                    yAxisId={isLearningRateKey(k) ? 'lr' : 'loss'}
                     stroke={strokeForKey(k)}
                     strokeWidth={2}
                     dot={false}
@@ -432,6 +465,7 @@ export default function JobLossGraph({ job }: Props) {
                     type="monotone"
                     dataKey={`${k}__fullsmooth`}
                     name={`${k}__fullsmooth`}
+                    yAxisId={isLearningRateKey(k) ? 'lr' : 'loss'}
                     stroke={dulledColor(strokeForKey(k))}
                     strokeWidth={2.5}
                     dot={false}
@@ -464,7 +498,7 @@ export default function JobLossGraph({ job }: Props) {
           <div className="bg-gray-950 border border-gray-800 rounded-lg p-3">
             <label className="block text-xs text-gray-400 mb-2">Series</label>
             {lossKeys.length === 0 ? (
-              <div className="text-sm text-gray-400">No loss keys found yet.</div>
+              <div className="text-sm text-gray-400">No chart metrics found yet.</div>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {lossKeys.map(k => (

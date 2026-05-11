@@ -19,12 +19,15 @@ const Sidebar = () => {
 
   return (
     <div className="flex flex-col w-59 bg-gray-900 text-gray-100">
-      <div className="px-4 py-3">
-        <h1 className="text-l">
-          <ThemeLogo />
-          <span className="font-bold uppercase">Ostris</span>
-          <span className="ml-2 uppercase text-gray-300">AI-Toolkit</span>
-        </h1>
+      <div className="px-4 py-2">
+        <div className="inline-flex flex-col">
+          <h1 className="text-l leading-none">
+            <ThemeLogo />
+            <span className="font-bold uppercase">Ostris</span>
+            <span className="ml-2 uppercase text-gray-300">AI-Toolkit</span>
+          </h1>
+          <div className="pl-8 pt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">HEX MOD</div>
+        </div>
       </div>
       <nav className="flex-1">
         <ul className="px-2 py-4 space-y-2">

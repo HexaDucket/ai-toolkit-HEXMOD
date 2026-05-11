@@ -366,6 +366,8 @@ class TrainConfig:
         self.optimizer_params = kwargs.get('optimizer_params', {})
         self.lr_scheduler = kwargs.get('lr_scheduler', 'constant')
         self.lr_scheduler_params = kwargs.get('lr_scheduler_params', {})
+        if 'num_warmup_steps' in kwargs:
+            self.lr_scheduler_params['num_warmup_steps'] = kwargs.get('num_warmup_steps')
         self.min_denoising_steps: int = kwargs.get('min_denoising_steps', 0)
         self.max_denoising_steps: int = kwargs.get('max_denoising_steps', 999)
         self.batch_size: int = kwargs.get('batch_size', 1)
@@ -499,7 +501,7 @@ class TrainConfig:
         self.correct_pred_norm = kwargs.get('correct_pred_norm', False)
         self.correct_pred_norm_multiplier = kwargs.get('correct_pred_norm_multiplier', 1.0)
 
-        self.loss_type = kwargs.get('loss_type', 'mse') # mse, mae, wavelet, pixelspace, mean_flow, pseudo_huber
+        self.loss_type = kwargs.get('loss_type', 'mse') # mse, mae, wavelet, pixelspace, mean_flow
         
         # do the loss on a timestep to 0 prediction
         self.t0_loss_target = kwargs.get('t0_loss_target', False)
@@ -706,8 +708,6 @@ class ModelConfig:
         
         # model paths for models that support it
         self.model_paths = kwargs.get("model_paths", {})
-        
-        self.in_context = kwargs.get("in_context", False)
         
         # allow frontend to pass arch with a color like arch:tag
         # but remove the tag

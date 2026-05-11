@@ -6,6 +6,16 @@ import fs from 'fs';
 import { TOOLKIT_ROOT, getTrainingFolder, getHFToken } from '../paths';
 const isWindows = process.platform === 'win32';
 
+const getOfflineMode = async () => {
+  const row = await prisma.settings.findFirst({
+    where: {
+      key: 'OFFLINE_MODE',
+    },
+  });
+
+  return row?.value === 'true';
+};
+
 const startAndWatchJob = (job: Job) => {
   // starts and watches the job asynchronously
   return new Promise<void>(async (resolve, reject) => {
@@ -92,6 +102,13 @@ const startAndWatchJob = (job: Job) => {
     const hfToken = await getHFToken();
     if (hfToken && hfToken.trim() !== '') {
       additionalEnv.HF_TOKEN = hfToken;
+    }
+
+    const offlineMode = await getOfflineMode();
+    if (offlineMode) {
+      additionalEnv.HF_HUB_OFFLINE = '1';
+      additionalEnv.TRANSFORMERS_OFFLINE = '1';
+      additionalEnv.HF_DATASETS_OFFLINE = '1';
     }
 
     // Add the --log argument to the command

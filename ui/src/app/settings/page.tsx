@@ -32,6 +32,11 @@ export default function Settings() {
     setSettings(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setSettings(prev => ({ ...prev, [name]: checked }));
+  };
+
   return (
     <>
       <TopBar>
@@ -107,6 +112,27 @@ export default function Settings() {
                     className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-gray-600 focus:border-transparent"
                     placeholder="Enter datasets folder path"
                   />
+                </div>
+
+                <div>
+                  <label htmlFor="OFFLINE_MODE" className="block text-sm font-medium mb-2">
+                    Offline Mode
+                    <div className="text-gray-500 text-sm ml-1">
+                      Uses only modelos e arquivos ja baixados no cache local do Hugging Face durante a execucao.
+                      O download online continua disponivel quando esta opcao estiver desativada.
+                    </div>
+                  </label>
+                  <label className="inline-flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="OFFLINE_MODE"
+                      name="OFFLINE_MODE"
+                      checked={settings.OFFLINE_MODE}
+                      onChange={handleCheckboxChange}
+                      className="h-4 w-4 rounded border border-gray-700 bg-gray-800"
+                    />
+                    <span className="text-sm text-gray-200">Executar jobs em modo offline com cache local</span>
+                  </label>
                 </div>
               </div>
             </div>

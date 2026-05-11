@@ -1,5 +1,6 @@
 'use client';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
 import {
   modelArchs,
   ModelArch,
@@ -22,13 +23,14 @@ import {
   SliderInput,
 } from '@/components/formInputs';
 import Card from '@/components/Card';
-import { X, Copy } from 'lucide-react';
+import { X, Copy, MoreHorizontal } from 'lucide-react';
 import AddSingleImageModal, { openAddImageModal } from '@/components/AddSingleImageModal';
 import SampleControlImage from '@/components/SampleControlImage';
 import { FlipHorizontal2, FlipVertical2 } from 'lucide-react';
 import { handleModelArchChange } from './utils';
 import { IoFlaskSharp } from 'react-icons/io5';
 import { isMac } from '@/helpers/basic';
+import { apiClient } from '@/utils/api';
 
 type Props = {
   jobConfig: JobConfig;
@@ -57,6 +59,9 @@ export default function SimpleJob({
   datasetOptions,
   isLoading,
 }: Props) {
+  const [datasetImageCounts, setDatasetImageCounts] = useState<Record<string, number>>({});
+  const [isRoseConfigOpen, setIsRoseConfigOpen] = useState(false);
+
   const modelArch = useMemo(() => {
     return modelArchs.find(a => a.name === jobConfig.config.process[0].model.arch) as ModelArch;
   }, [jobConfig.config.process[0].model.arch]);
@@ -216,6 +221,158 @@ export default function SimpleJob({
   if (numSampleTopCols == 3) {
     sampleTopStyleClass = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
   }
+
+  useEffect(() => {
+    const datasetPaths = jobConfig.config.process[0].datasets
+      .map(dataset => dataset.folder_path)
+      .filter(path => !!path && !path.startsWith('/path/to/'));
+
+    const uniquePaths = Array.from(new Set(datasetPaths));
+    if (uniquePaths.length === 0) {
+      setDatasetImageCounts({});
+      return;
+    }
+
+    let cancelled = false;
+
+    Promise.all(
+      uniquePaths.map(async datasetPath => {
+        const datasetName = datasetPath.split(/[\\/]/).pop() || datasetPath;
+        try {
+          const response = await apiClient.post('/api/datasets/listImages', { datasetName });
+          const images = response.data?.images ?? [];
+          return [datasetPath, images.length] as const;
+        } catch (error) {
+          console.error(`Failed to count dataset images for ${datasetName}:`, error);
+          return [datasetPath, 0] as const;
+        }
+      }),
+    ).then(entries => {
+      if (cancelled) return;
+      setDatasetImageCounts(Object.fromEntries(entries));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [jobConfig.config.process[0].datasets]);
+
+  const trainingEpochs = useMemo(() => {
+    return Math.max(1, Number(jobConfig.meta.training_epochs ?? 3) || 1);
+  }, [jobConfig.meta.training_epochs]);
+
+  const trainingRepeats = useMemo(() => {
+    return Math.max(1, Number(jobConfig.meta.training_repeats ?? 1) || 1);
+  }, [jobConfig.meta.training_repeats]);
+
+  const trainingWarmupPercentage = useMemo(() => {
+    const value = Number(jobConfig.meta.training_warmup_percentage ?? 0) || 0;
+    return Math.max(0, Math.min(100, value));
+  }, [jobConfig.meta.training_warmup_percentage]);
+
+  const lrScheduler = useMemo(() => {
+    return jobConfig.config.process[0].train.lr_scheduler || 'constant';
+  }, [jobConfig.config.process[0].train.lr_scheduler]);
+
+  const isRoseOptimizer = useMemo(() => {
+    return jobConfig.config.process[0].train.optimizer === 'rose';
+  }, [jobConfig.config.process[0].train.optimizer]);
+
+  const roseWdScheduleMode = useMemo(() => {
+    const wdSchedule = jobConfig.config.process[0].train.optimizer_params.wd_schedule;
+    if (typeof wdSchedule === 'number') {
+      return 'custom';
+    }
+    if (wdSchedule) {
+      return 'auto';
+    }
+    return 'off';
+  }, [jobConfig.config.process[0].train.optimizer_params.wd_schedule]);
+
+  const warmupEnabled = useMemo(() => {
+    return (
+      lrScheduler === 'cosine' ||
+      lrScheduler === 'cosine_with_restarts' ||
+      lrScheduler === 'constant_with_warmup'
+    );
+  }, [lrScheduler]);
+
+  const totalDatasetImages = useMemo(() => {
+    return jobConfig.config.process[0].datasets.reduce((acc, dataset) => {
+      const imageCount = datasetImageCounts[dataset.folder_path] ?? 0;
+      return acc + imageCount;
+    }, 0);
+  }, [datasetImageCounts, jobConfig.config.process[0].datasets]);
+
+  const computedTotalSteps = useMemo(() => {
+    const batchSize = Math.max(1, Number(jobConfig.config.process[0].train.batch_size) || 1);
+    const gradientAccumulation = Math.max(1, Number(jobConfig.config.process[0].train.gradient_accumulation) || 1);
+    const total = (totalDatasetImages * trainingRepeats * trainingEpochs) / (batchSize * gradientAccumulation);
+    return Math.max(1, Math.floor(total || 0));
+  }, [
+    totalDatasetImages,
+    trainingRepeats,
+    trainingEpochs,
+    jobConfig.config.process[0].train.batch_size,
+    jobConfig.config.process[0].train.gradient_accumulation,
+  ]);
+
+  const computedWarmupSteps = useMemo(() => {
+    if (!warmupEnabled) {
+      return 0;
+    }
+    return Math.max(0, Math.floor((computedTotalSteps * trainingWarmupPercentage) / 100));
+  }, [computedTotalSteps, trainingWarmupPercentage, warmupEnabled]);
+
+  useEffect(() => {
+    const datasets = jobConfig.config.process[0].datasets;
+    const shouldSync = datasets.some(dataset => (dataset.num_repeats ?? 1) !== trainingRepeats);
+    if (shouldSync) {
+      setJobConfig(
+        datasets.map(dataset => ({
+          ...dataset,
+          num_repeats: trainingRepeats,
+        })),
+        'config.process[0].datasets',
+      );
+    }
+  }, [jobConfig.config.process[0].datasets, setJobConfig, trainingRepeats]);
+
+  useEffect(() => {
+    if (jobConfig.config.process[0].train.steps !== computedTotalSteps) {
+      setJobConfig(computedTotalSteps, 'config.process[0].train.steps');
+    }
+  }, [computedTotalSteps, jobConfig.config.process[0].train.steps, setJobConfig]);
+
+  useEffect(() => {
+    if ((jobConfig.config.process[0].train.num_warmup_steps ?? 0) !== computedWarmupSteps) {
+      setJobConfig(computedWarmupSteps, 'config.process[0].train.num_warmup_steps');
+    }
+  }, [computedWarmupSteps, jobConfig.config.process[0].train.num_warmup_steps, setJobConfig]);
+
+  useEffect(() => {
+    if (!isRoseOptimizer) {
+      return;
+    }
+
+    const optimizerParams = jobConfig.config.process[0].train.optimizer_params;
+    if (optimizerParams.wd_schedule === undefined) {
+      setJobConfig(false, 'config.process[0].train.optimizer_params.wd_schedule');
+    }
+    if (optimizerParams.centralize === undefined) {
+      setJobConfig(true, 'config.process[0].train.optimizer_params.centralize');
+    }
+    if (optimizerParams.stabilize === undefined) {
+      setJobConfig(true, 'config.process[0].train.optimizer_params.stabilize');
+    }
+    if (optimizerParams.bf16_sr === undefined) {
+      setJobConfig(true, 'config.process[0].train.optimizer_params.bf16_sr');
+    }
+    if (optimizerParams.compute_dtype === undefined) {
+      setJobConfig('fp64', 'config.process[0].train.optimizer_params.compute_dtype');
+    }
+  }, [isRoseOptimizer, jobConfig.config.process[0].train.optimizer_params, setJobConfig]);
+
   return (
     <>
       <form
@@ -560,30 +717,71 @@ export default function SimpleJob({
                   required
                 />
                 <NumberInput
-                  label="Steps"
+                  label="Epochs"
                   className="pt-2"
-                  value={jobConfig.config.process[0].train.steps}
-                  onChange={value => setJobConfig(value, 'config.process[0].train.steps')}
-                  placeholder="eg. 2000"
+                  value={trainingEpochs}
+                  onChange={value => setJobConfig(Math.max(1, value || 1), 'meta.training_epochs')}
+                  placeholder="eg. 3"
                   min={1}
                   required
                 />
+                <NumberInput
+                  label="Repetições"
+                  className="pt-2"
+                  value={trainingRepeats}
+                  onChange={value => setJobConfig(Math.max(1, value || 1), 'meta.training_repeats')}
+                  placeholder="eg. 10"
+                  min={1}
+                  required
+                />
+                <div className="pt-3">
+                  <div className="text-xs mb-1 mt-2 text-gray-300">Total Steps</div>
+                  <div className="w-full text-sm px-3 py-2 bg-gray-800 border border-gray-700 rounded-sm text-gray-200">
+                    {computedTotalSteps.toLocaleString()}
+                  </div>
+                  <div className="pt-2 text-xs text-gray-500">
+                    ({totalDatasetImages.toLocaleString()} imagens x {trainingRepeats.toLocaleString()} repetições x{' '}
+                    {trainingEpochs.toLocaleString()} epochs) / (
+                    {Math.max(1, Number(jobConfig.config.process[0].train.batch_size) || 1)} batch x{' '}
+                    {Math.max(1, Number(jobConfig.config.process[0].train.gradient_accumulation) || 1)} grad acc)
+                  </div>
+                </div>
               </div>
               <div>
-                <SelectInput
-                  label="Optimizer"
-                  value={jobConfig.config.process[0].train.optimizer}
-                  onChange={value => setJobConfig(value, 'config.process[0].train.optimizer')}
-                  options={[
-                    { value: 'adafactor', label: 'Adafactor' },
-                    { value: 'adam', label: 'Adam' },
-                    { value: 'adamw', label: 'AdamW' },
-                    { value: 'adamw8bit', label: 'AdamW8Bit' },
-                    { value: 'automagic', label: 'Automagic' },
-                    { value: 'prodigyopt', label: 'Prodigy' },
-                    { value: 'prodigy8bit', label: 'Prodigy8Bit' },
-                  ]}
-                />
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <SelectInput
+                      label="Optimizer"
+                      value={jobConfig.config.process[0].train.optimizer}
+                      onChange={value => setJobConfig(value, 'config.process[0].train.optimizer')}
+                      options={[
+                        { value: 'adafactor', label: 'Adafactor' },
+                        { value: 'adam', label: 'Adam' },
+                        { value: 'adamw', label: 'AdamW' },
+                        { value: 'adamw8bit', label: 'AdamW8Bit' },
+                        { value: 'automagic', label: 'Automagic' },
+                        { value: 'prodigyopt', label: 'Prodigy' },
+                        { value: 'prodigy8bit', label: 'Prodigy8Bit' },
+                        { value: 'rose', label: 'Rose' },
+                      ]}
+                    />
+                  </div>
+                  {isRoseOptimizer && (
+                    <button
+                      type="button"
+                      onClick={() => setIsRoseConfigOpen(true)}
+                      className="mb-[1px] flex h-[38px] w-[38px] items-center justify-center rounded-sm border border-gray-700 bg-gray-800 text-gray-300 transition-colors hover:bg-gray-700"
+                      title="Configurar parametros do Rose"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                {isRoseOptimizer && (
+                  <div className="pt-2 text-xs text-gray-500">
+                    Parametros extras do Rose ficam nos tres pontinhos ao lado do seletor.
+                  </div>
+                )}
                 <NumberInput
                   label="Learning Rate"
                   className="pt-2"
@@ -602,6 +800,41 @@ export default function SimpleJob({
                   min={0}
                   required
                 />
+                <SelectInput
+                  label="LR Scheduler"
+                  className="pt-2"
+                  value={lrScheduler}
+                  onChange={value => setJobConfig(value, 'config.process[0].train.lr_scheduler')}
+                  options={[
+                    { value: 'constant', label: 'Constant' },
+                    { value: 'constant_with_warmup', label: 'Constant With Warmup' },
+                    { value: 'cosine', label: 'Cosine' },
+                    { value: 'cosine_with_restarts', label: 'Cosine With Restarts' },
+                    { value: 'linear', label: 'Linear' },
+                    { value: 'step', label: 'Step' },
+                  ]}
+                />
+                <SliderInput
+                  label="Warmup Percentage"
+                  className="pt-2"
+                  value={trainingWarmupPercentage}
+                  onChange={value => setJobConfig(value, 'meta.training_warmup_percentage')}
+                  min={0}
+                  max={100}
+                  step={1}
+                  disabled={!warmupEnabled}
+                />
+                <div className="pt-2">
+                  <div className="text-xs mb-1 mt-2 text-gray-300">Warmup Steps</div>
+                  <div className="w-full text-sm px-3 py-2 bg-gray-800 border border-gray-700 rounded-sm text-gray-200">
+                    {computedWarmupSteps.toLocaleString()}
+                  </div>
+                  {!warmupEnabled && (
+                    <div className="pt-2 text-xs text-gray-500">
+                      Warmup so funciona com `cosine`, `cosine_with_restarts` e `constant_with_warmup`.
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 {disableSections.includes('train.timestep_type') ? null : (
@@ -928,11 +1161,11 @@ export default function SimpleJob({
                         placeholder="eg. 1.0"
                       />
                       <NumberInput
-                        label="Num Repeats"
-                        value={dataset.num_repeats || 1}
+                        label="Repetições (global)"
+                        value={trainingRepeats}
                         className="pt-2"
-                        onChange={value => setJobConfig(value, `config.process[0].datasets[${i}].num_repeats`)}
-                        placeholder="eg. 1"
+                        onChange={value => setJobConfig(Math.max(1, value || 1), 'meta.training_repeats')}
+                        placeholder="eg. 10"
                         docKey={'dataset.num_repeats'}
                       />
                     </div>
@@ -1533,6 +1766,111 @@ export default function SimpleJob({
         {status === 'success' && <p className="text-green-500 text-center">Training saved successfully!</p>}
         {status === 'error' && <p className="text-red-500 text-center">Error saving training. Please try again.</p>}
       </form>
+      <Dialog open={isRoseOptimizer && isRoseConfigOpen} onClose={() => setIsRoseConfigOpen(false)} className="relative z-20">
+        <DialogBackdrop
+          transition
+          className="fixed inset-0 bg-gray-900/75 transition-opacity data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in"
+        />
+        <div className="fixed inset-0 z-20 w-screen overflow-y-auto">
+          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <DialogPanel
+              transition
+              className="relative transform overflow-hidden rounded-lg bg-gray-800 text-left shadow-xl transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-lg data-closed:sm:translate-y-0 data-closed:sm:scale-95"
+            >
+              <div className="bg-gray-800 px-4 pt-5 pb-4 sm:p-6">
+                <DialogTitle as="h3" className="text-base font-semibold text-gray-100">
+                  Rose Optimizer
+                </DialogTitle>
+                <div className="mt-2 text-sm text-gray-400">
+                  Ajuste os parametros extras do Rose. O `weight_decay` continua no campo principal de treino.
+                </div>
+                <div className="mt-4 space-y-3">
+                  <SelectInput
+                    label="WD Schedule"
+                    value={roseWdScheduleMode}
+                    onChange={value => {
+                      if (value === 'auto') {
+                        setJobConfig(true, 'config.process[0].train.optimizer_params.wd_schedule');
+                        return;
+                      }
+                      if (value === 'custom') {
+                        const fallbackLr = Number(jobConfig.config.process[0].train.lr) || 0.001;
+                        setJobConfig(fallbackLr, 'config.process[0].train.optimizer_params.wd_schedule');
+                        return;
+                      }
+                      setJobConfig(false, 'config.process[0].train.optimizer_params.wd_schedule');
+                    }}
+                    options={[
+                      { value: 'off', label: 'Off' },
+                      { value: 'auto', label: 'Auto' },
+                      { value: 'custom', label: 'Custom Reference LR' },
+                    ]}
+                  />
+                  {roseWdScheduleMode === 'custom' && (
+                    <NumberInput
+                      label="WD Reference LR"
+                      value={
+                        typeof jobConfig.config.process[0].train.optimizer_params.wd_schedule === 'number'
+                          ? jobConfig.config.process[0].train.optimizer_params.wd_schedule
+                          : Number(jobConfig.config.process[0].train.lr) || 0.001
+                      }
+                      onChange={value =>
+                        setJobConfig(
+                          Math.max(0, Number(value ?? 0)),
+                          'config.process[0].train.optimizer_params.wd_schedule',
+                        )
+                      }
+                      placeholder="eg. 0.001"
+                      min={0}
+                    />
+                  )}
+                  <Checkbox
+                    label="Centralize Gradients"
+                    checked={jobConfig.config.process[0].train.optimizer_params.centralize ?? true}
+                    onChange={value => setJobConfig(value, 'config.process[0].train.optimizer_params.centralize')}
+                  />
+                  <Checkbox
+                    label="Stabilize Range"
+                    checked={jobConfig.config.process[0].train.optimizer_params.stabilize ?? true}
+                    onChange={value => setJobConfig(value, 'config.process[0].train.optimizer_params.stabilize')}
+                  />
+                  <Checkbox
+                    label="BF16 Stochastic Rounding"
+                    checked={jobConfig.config.process[0].train.optimizer_params.bf16_sr ?? true}
+                    onChange={value => setJobConfig(value, 'config.process[0].train.optimizer_params.bf16_sr')}
+                  />
+                  <SelectInput
+                    label="Compute DType"
+                    value={jobConfig.config.process[0].train.optimizer_params.compute_dtype ?? 'none'}
+                    onChange={value =>
+                      setJobConfig(
+                        value === 'none' ? null : value,
+                        'config.process[0].train.optimizer_params.compute_dtype',
+                      )
+                    }
+                    options={[
+                      { value: 'fp64', label: 'FP64' },
+                      { value: 'fp32', label: 'FP32' },
+                      { value: 'bf16', label: 'BF16' },
+                      { value: 'fp16', label: 'FP16' },
+                      { value: 'none', label: 'Native / None' },
+                    ]}
+                  />
+                </div>
+              </div>
+              <div className="bg-gray-700 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                <button
+                  type="button"
+                  onClick={() => setIsRoseConfigOpen(false)}
+                  className="inline-flex w-full justify-center rounded-md bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-200 hover:bg-gray-900 sm:w-auto"
+                >
+                  Fechar
+                </button>
+              </div>
+            </DialogPanel>
+          </div>
+        </div>
+      </Dialog>
       <AddSingleImageModal />
     </>
   );

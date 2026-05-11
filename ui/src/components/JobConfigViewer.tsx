@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import YAML from 'yaml';
 import Editor from '@monaco-editor/react';
+import { configureMonaco } from '@/utils/monaco';
 
 import { Job } from '@prisma/client';
 
@@ -32,6 +33,8 @@ function toYaml(obj: any): string {
   });
   return doc.toString(yamlConfig);
 }
+
+configureMonaco();
 
 export default function JobConfigViewer({ job }: Props) {
   const [editorValue, setEditorValue] = useState<string>('');

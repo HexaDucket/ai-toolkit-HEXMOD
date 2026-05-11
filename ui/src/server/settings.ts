@@ -67,6 +67,24 @@ export const getHFToken = async () => {
   return token;
 };
 
+export const getOfflineMode = async () => {
+  const key = 'OFFLINE_MODE';
+  const cached = myCache.get(key);
+  if (typeof cached === 'boolean') {
+    return cached;
+  }
+
+  const row = await prisma.settings.findFirst({
+    where: {
+      key,
+    },
+  });
+
+  const isEnabled = row?.value === 'true';
+  myCache.set(key, isEnabled);
+  return isEnabled;
+};
+
 export const getDataRoot = async () => {
   const key = 'DATA_ROOT';
   let dataRoot = myCache.get(key) as string;
