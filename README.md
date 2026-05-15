@@ -1,6 +1,14 @@
-# Ostris AI Toolkit
+# Ostris AI Toolkit (HEX MOD)
 
 AI Toolkit is an easy to use all in one training suite for diffusion models. I try to support all the latest models on consumer grade hardware. Image and video models. It can be run as a GUI or CLI. It is designed to be easy to use but still have every feature imaginable. Free and open source.
+
+**HEX MOD** is a custom fork designed for power users, bringing full offline support and new advanced training tools.
+
+✨ **HEX MOD Features:**
+- **Fully Offline:** The entire toolkit and GUI now work completely offline.
+- **Rose Optimizer:** Native support for the **Rose** optimizer with dedicated UI controls.
+- **Smarter Training Logic:** Improved auto-calculation for total training steps (based on dataset size, repeats, and epochs) and native support for cosine learning rate schedule with warmup.
+- **Enhanced Monitoring:** Upgraded loss graphs featuring a dedicated dual-axis for precise Learning Rate tracking.
 
 
 
