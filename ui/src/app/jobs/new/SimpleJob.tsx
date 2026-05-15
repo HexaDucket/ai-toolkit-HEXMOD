@@ -730,7 +730,7 @@ export default function SimpleJob({
                   required
                 />
                 <NumberInput
-                  label="Repetições"
+                  label="Repeats"
                   className="pt-2"
                   value={trainingRepeats}
                   onChange={value => setJobConfig(Math.max(1, value || 1), 'meta.training_repeats')}
@@ -744,7 +744,7 @@ export default function SimpleJob({
                     {computedTotalSteps.toLocaleString()}
                   </div>
                   <div className="pt-2 text-xs text-gray-500">
-                    ({totalDatasetImages.toLocaleString()} imagens x {trainingRepeats.toLocaleString()} repetições x{' '}
+                    ({totalDatasetImages.toLocaleString()} images x {trainingRepeats.toLocaleString()} repeats x{' '}
                     {trainingEpochs.toLocaleString()} epochs) / (
                     {Math.max(1, Number(jobConfig.config.process[0].train.batch_size) || 1)} batch x{' '}
                     {Math.max(1, Number(jobConfig.config.process[0].train.gradient_accumulation) || 1)} grad acc)
@@ -776,7 +776,7 @@ export default function SimpleJob({
                       type="button"
                       onClick={() => setIsRoseConfigOpen(true)}
                       className="mb-[1px] flex h-[38px] w-[38px] items-center justify-center rounded-sm border border-gray-700 bg-gray-800 text-gray-300 transition-colors hover:bg-gray-700"
-                      title="Configurar parametros do Rose"
+                      title="Configure Rose parameters"
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </button>
@@ -784,7 +784,7 @@ export default function SimpleJob({
                 </div>
                 {isRoseOptimizer && (
                   <div className="pt-2 text-xs text-gray-500">
-                    Parametros extras do Rose ficam nos tres pontinhos ao lado do seletor.
+                    Extra Rose parameters are located in the three dots next to the selector.
                   </div>
                 )}
                 <NumberInput
@@ -836,7 +836,7 @@ export default function SimpleJob({
                   </div>
                   {!warmupEnabled && (
                     <div className="pt-2 text-xs text-gray-500">
-                      Warmup so funciona com `cosine`, `cosine_with_restarts` e `constant_with_warmup`.
+                      Warmup only works with `cosine`, `cosine_with_restarts` and `constant_with_warmup`.
                     </div>
                   )}
                 </div>
@@ -1166,7 +1166,7 @@ export default function SimpleJob({
                         placeholder="eg. 1.0"
                       />
                       <NumberInput
-                        label="Repetições (global)"
+                        label="Repeats (global)"
                         value={trainingRepeats}
                         className="pt-2"
                         onChange={value => setJobConfig(Math.max(1, value || 1), 'meta.training_repeats')}
@@ -1787,7 +1787,7 @@ export default function SimpleJob({
                   Rose Optimizer
                 </DialogTitle>
                 <div className="mt-2 text-sm text-gray-400">
-                  Ajuste os parametros extras do Rose. O `weight_decay` continua no campo principal de treino.
+                  Adjust Rose extra parameters. The `weight_decay` is still configured in the main training section.
                 </div>
                 <div className="mt-4 space-y-3">
                   <SelectInput

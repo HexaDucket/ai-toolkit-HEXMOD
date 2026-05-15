@@ -109,7 +109,7 @@ export default function TrainingForm() {
   const handleLoadPreset = () => {
     const preset = presets.find(item => item.id === selectedPresetId);
     if (!preset) {
-      alert('Selecione uma predefinicao para carregar.');
+      alert('Select a preset to load.');
       return;
     }
 
@@ -120,23 +120,23 @@ export default function TrainingForm() {
   const handleSavePreset = (mode: 'create' | 'update') => {
     const trimmedName = presetName.trim();
     if (!trimmedName) {
-      alert('Digite um nome para a predefinicao.');
+      alert('Enter a name for the preset.');
       return;
     }
 
     const existing = presets.find(item => item.id === selectedPresetId);
     if (mode === 'update' && !existing) {
-      alert('Selecione uma predefinicao para atualizar.');
+      alert('Select a preset to update.');
       return;
     }
 
     if (mode === 'create' && presets.some(item => item.name === trimmedName)) {
-      alert('Ja existe uma predefinicao com esse nome.');
+      alert('A preset with this name already exists.');
       return;
     }
 
     if (mode === 'update' && presets.some(item => item.name === trimmedName && item.id !== selectedPresetId)) {
-      alert('Ja existe outra predefinicao com esse nome.');
+      alert('Another preset with this name already exists.');
       return;
     }
 
@@ -161,11 +161,11 @@ export default function TrainingForm() {
   const handleDeletePreset = () => {
     const preset = presets.find(item => item.id === selectedPresetId);
     if (!preset) {
-      alert('Selecione uma predefinicao para deletar.');
+      alert('Select a preset to delete.');
       return;
     }
 
-    if (!window.confirm(`Deletar a predefinicao "${preset.name}"?`)) {
+    if (!window.confirm(`Delete the preset "${preset.name}"?`)) {
       return;
     }
 
@@ -389,35 +389,35 @@ export default function TrainingForm() {
             <TextInput
               value={presetName}
               onChange={setPresetName}
-              placeholder="Nome do preset"
+              placeholder="Preset name"
             />
           </div>
         </div>
         <div className="flex items-center gap-1 px-2">
-          <Button className={presetIconButtonClass} onClick={handleLoadPreset} title="Carregar preset selecionado">
+          <Button className={presetIconButtonClass} onClick={handleLoadPreset} title="Load selected preset">
             <FolderOpen className="h-4 w-4" />
           </Button>
           <Button
             className={presetIconButtonClass}
             onClick={() => handleSavePreset('create')}
-            title="Salvar preset novo com o nome informado"
+            title="Save new preset with the provided name"
           >
             <Save className="h-4 w-4" />
           </Button>
           <Button
             className={presetIconButtonClass}
             onClick={() => handleSavePreset('update')}
-            title="Atualizar o preset selecionado"
+            title="Update selected preset"
           >
             <PencilLine className="h-4 w-4" />
           </Button>
-          <Button className={presetIconButtonClass} onClick={handleNewPresetDraft} title="Criar novo rascunho de preset">
+          <Button className={presetIconButtonClass} onClick={handleNewPresetDraft} title="Create new preset draft">
             <FilePlus2 className="h-4 w-4" />
           </Button>
           <Button
             className={`${presetIconButtonClass} text-red-300 hover:bg-red-900/40`}
             onClick={handleDeletePreset}
-            title="Deletar preset selecionado"
+            title="Delete selected preset"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
