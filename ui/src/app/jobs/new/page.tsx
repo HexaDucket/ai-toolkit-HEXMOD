@@ -379,7 +379,6 @@ export default function TrainingForm() {
           </>
         )}
 
-<<<<<<< HEAD
         <div className="flex items-center gap-2 px-2">
           <div className="w-36">
             <SelectInput

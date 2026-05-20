@@ -1,3 +1,23 @@
+# Criação do Recurso de Mesclagem Universal de LoRAs (Merger)
+Data: 2026-05-20
+Tamanho: medio
+
+## Sumário
+Implementação de um novo módulo e página de interface do usuário para mesclar múltiplos modelos LoRAs (.safetensors) de forma universal e interativa. Utiliza o script de mesclagem integrado, fornecendo inputs para configurar nome do arquivo, pesos/força das LoRAs individuais, tipo de dado (dtype) e dispositivo de processamento (CPU/GPU) com saída de logs em tempo real.
+
+## Mudanças
+
+### implementação - Frontend UI & API
+- **ui/src/app/api/files/safetensors/route.ts**:
+  - Nova rota GET para escanear recursivamente e listar todos os arquivos `.safetensors` na pasta de treinamento do usuário.
+- **ui/src/app/merger/page.tsx**:
+  - Nova página (em inglês, conforme solicitado pelo usuário) com o formulário de parametrização e listagem das LoRAs selecionadas com seus respectivos pesos.
+  - Integração do componente de logs para monitoramento em tempo real da execução do script `merge_loras.py`.
+- **ui/src/components/Sidebar.tsx**:
+  - Adição da aba "Merger" no menu lateral responsivo, localizada logo abaixo da aba "Datasets", utilizando o ícone `GitMerge`.
+
+---
+
 # Resolução de Conflitos e Merge Upstream
 Data: 2026-05-20
 Tamanho: pequeno

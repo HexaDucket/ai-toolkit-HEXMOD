@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Settings, BrainCircuit, Images, Plus, X } from 'lucide-react';
+import { Home, Settings, BrainCircuit, Images, Plus, X, GitMerge } from 'lucide-react';
 import { FaXTwitter, FaDiscord, FaYoutube } from 'react-icons/fa6';
 import { createGlobalState } from 'react-global-hooks';
 import ThemeToggle from './ThemeToggle';
@@ -37,6 +37,7 @@ const Sidebar = () => {
     { name: 'New Job', href: '/jobs/new', icon: Plus },
     { name: 'Queue', href: '/jobs', icon: BrainCircuit },
     { name: 'Datasets', href: '/datasets', icon: Images },
+    { name: 'Merger', href: '/merger', icon: GitMerge },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 

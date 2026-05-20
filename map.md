@@ -45,7 +45,9 @@ O projeto é estruturado em duas partes principais:
 | Arquivo/Diretório | Função/Responsabilidade | Provimentos | Estado | Déficits/Melhorias |
 | :--- | :--- | :--- | :--- | :--- |
 | `ui/src/app/jobs/new/page.tsx` | Página de criação e edição de jobs de treinamento com suporte a predefinições (presets). | `TrainingForm`, salvamento, carregamento, atualização e deleção de presets de jobs. | **Completo** | Resolvido conflito de merge mantendo os presets integrados ao layout atualizado. |
-| `ui/src/components/Sidebar.tsx` | Barra lateral responsiva de navegação para a interface web. | `Sidebar`, controle de estado móvel (`mobileSidebarState`) e links sociais/configurações. | **Completo** | Adaptado o subtítulo "HEX MOD" à nova barra lateral responsiva. |
+| `ui/src/components/Sidebar.tsx` | Barra lateral responsiva de navegação para a interface web. | `Sidebar`, controle de estado móvel (`mobileSidebarState`) e links sociais/configurações. Adicionado atalho "Merger". | **Completo** | Nenhuma pendência imediata. |
+| `ui/src/app/merger/page.tsx` | Página de mesclagem universal de LoRAs (Merger). | Interface gráfica para selecionar checkpoints, definir forças/pesos, save_dtype, device e executar `merge_loras.py` em tempo real. | **Completo** | Nenhuma pendência imediata. |
+| `ui/src/app/api/files/safetensors/route.ts` | Rota de API para listar checkpoints safetensors. | Endpoint GET para escanear recursivamente o diretório de treinamento e listar todos os arquivos `.safetensors`. | **Completo** | Nenhuma pendência imediata. |
 | `ui/src/app/settings/page.tsx` | Página de configurações globais da aplicação. | Gerenciamento de pastas de datasets, treinamentos e tokens de segurança. | **Completo** | Sincronizado com os caminhos locais do ambiente HEX MOD. |
 | `ui/src/components/GPUMonitor.tsx` | Monitoramento e alocação de GPUs disponíveis no servidor para execução dos treinamentos. | Exibição de estatísticas de memória VRAM e índices de GPU ativos. | **Completo** | Integrado às APIs locais de monitoramento de hardware. |
 
